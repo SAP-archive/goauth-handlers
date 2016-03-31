@@ -54,6 +54,7 @@ func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	if err != nil {
 		// TODO(ivan): log and fix response message
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
 	}
 
 	token, ok := h.getToken(session)
@@ -66,16 +67,19 @@ func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		session.Save(req, w)
 
 		http.Redirect(w, req, h.Provider.LoginURL(state), http.StatusFound)
+		return
 	}
 
 	info, err := h.Decoder.Decode(token)
 	if err != nil {
 		// TODO(ivan): log and fix response message
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
 	}
 	if hasMissingScope(info.Scopes, h.RequiredScopes) {
 		// TODO(ivan): log and fix response message
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
 	}
 }
 
