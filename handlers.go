@@ -102,7 +102,7 @@ func (h *AuthorizationHandler) getToken(session *sessions.Session) (*oauth2.Toke
 
 func hasMissingScope(actual, expected []string) bool {
 	if len(expected) == 0 {
-		return true
+		return false
 	}
 	m := make(map[string]struct{})
 	for _, scope := range expected {
