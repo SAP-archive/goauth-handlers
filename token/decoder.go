@@ -9,6 +9,8 @@ import (
 	"golang.org/x/oauth2"
 )
 
+var DefaultDecoder = Decoder{}
+
 type Decoder struct{}
 
 type InvalidFormatError string
