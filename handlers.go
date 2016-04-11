@@ -81,6 +81,7 @@ func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
+	h.Handler.ServeHTTP(w, req)
 }
 
 // TODO(ivan): maybe return token, bool and error?
