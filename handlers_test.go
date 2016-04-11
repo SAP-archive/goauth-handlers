@@ -18,6 +18,16 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type callCountHandler int
+
+func (h *callCountHandler) ServeHTTP(http.ResponseWriter, *http.Request) {
+	*h++
+}
+
+func (h *callCountHandler) CallCount() int {
+	return int(*h)
+}
+
 var _ = Describe("AuthorizationHandler", func() {
 	const loginURL = "http://login.here"
 	const unsetResponseCode = -1
@@ -32,6 +42,7 @@ var _ = Describe("AuthorizationHandler", func() {
 	var sessionStore *fakes.FakeSessionStore
 	var session *sessions.Session
 
+	var wrappedHandler *callCountHandler
 	var handler http.Handler
 
 	var request *http.Request
@@ -67,11 +78,13 @@ var _ = Describe("AuthorizationHandler", func() {
 		tokenDecoder = new(fakes.FakeTokenDecoder)
 		tokenDecoder.DecodeReturns(oauthTokenInfo, nil)
 
+		wrappedHandler = new(callCountHandler)
 		handler = &AuthorizationHandler{
 			Provider:       tokenProvider,
 			Decoder:        tokenDecoder,
 			Store:          sessionStore,
 			RequiredScopes: []string{"logs", "messages"},
+			Handler:        wrappedHandler,
 		}
 
 		var err error
@@ -102,6 +115,10 @@ var _ = Describe("AuthorizationHandler", func() {
 		It("should not have written output", func() {
 			Ω(response.Code).Should(Equal(unsetResponseCode))
 			Ω(response.Body.Len()).Should(Equal(0))
+		})
+
+		It("should have called the wrapped handler", func() {
+			Ω(wrappedHandler.CallCount()).Should(Equal(1))
 		})
 	})
 
