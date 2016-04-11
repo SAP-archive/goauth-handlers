@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Handler", func() {
+var _ = Describe("AuthorizationHandler", func() {
 	const loginURL = "http://login.here"
 	const unsetResponseCode = -1
 
