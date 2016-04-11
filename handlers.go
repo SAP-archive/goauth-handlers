@@ -33,6 +33,15 @@ type SessionStore interface {
 	sessions.Store
 }
 
+// Logger provides basic logging functionality. It should be safe for
+// concurrent use by multiple goroutines.
+type Logger interface {
+	// Printf is used for info logging by a handler.
+	Printf(format string, args ...interface{})
+	// Errorf is used for logging errors that are handled by a handler.
+	Errorf(format string, args ...interface{})
+}
+
 // TODO(ivan): does this need to be public?
 const SessionName = "goauth"
 const sessionTokenField = "token"
@@ -45,7 +54,7 @@ type AuthorizationHandler struct {
 	RequiredScopes []string
 	// TODO(ivan): Determine what Logger should include,
 	// and allow one to pass in concrete implementation.
-	Logger interface{}
+	Logger Logger
 }
 
 func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -53,6 +62,9 @@ func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	// TODO(ivan): add test for this
 	if err != nil {
 		// TODO(ivan): log and fix response message
+		if h.Logger != nil {
+			h.Logger.Errorf("AuthorizationHandler: error getting session %q: %v\n", SessionName, err)
+		}
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -73,11 +85,17 @@ func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	info, err := h.Decoder.Decode(token)
 	if err != nil {
 		// TODO(ivan): log and fix response message
+		if h.Logger != nil {
+			h.Logger.Errorf("AuthorizationHandler: error decoding token: %v\n", err)
+		}
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	if hasMissingScope(info.Scopes, h.RequiredScopes) {
 		// TODO(ivan): log and fix response message
+		if h.Logger != nil {
+			h.Logger.Printf("AuthorizationHandler: denying access because of missing scope.\n")
+		}
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
