@@ -42,6 +42,8 @@ var _ = Describe("AuthorizationHandler", func() {
 	var sessionStore *fakes.FakeSessionStore
 	var session *sessions.Session
 
+	var logger *fakes.FakeLogger
+
 	var wrappedHandler *callCountHandler
 	var handler http.Handler
 
@@ -77,6 +79,7 @@ var _ = Describe("AuthorizationHandler", func() {
 		}
 		tokenDecoder = new(fakes.FakeTokenDecoder)
 		tokenDecoder.DecodeReturns(oauthTokenInfo, nil)
+		logger = new(fakes.FakeLogger)
 
 		wrappedHandler = new(callCountHandler)
 		handler = &AuthorizationHandler{
@@ -85,6 +88,7 @@ var _ = Describe("AuthorizationHandler", func() {
 			Store:          sessionStore,
 			RequiredScopes: []string{"logs", "messages"},
 			Handler:        wrappedHandler,
+			Logger:         logger,
 		}
 
 		var err error
@@ -177,6 +181,10 @@ var _ = Describe("AuthorizationHandler", func() {
 	Context("when token in session is not a valid json", func() {
 		BeforeEach(func() {
 			session.Values["token"] = "{"
+		})
+
+		It("should log", func() {
+			Ω(logger.ErrorfCallCount()).Should(Equal(1))
 		})
 
 		itShouldRedirectToLogin()

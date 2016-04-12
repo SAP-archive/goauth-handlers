@@ -15,6 +15,7 @@ import (
 //go:generate counterfeiter . TokenProvider
 //go:generate counterfeiter . TokenDecoder
 //go:generate counterfeiter . SessionStore
+//go:generate counterfeiter . Logger
 
 // TokenProvider should be able to echange auth code for access token and
 // generate login url from state string.
@@ -114,6 +115,7 @@ func (h *AuthorizationHandler) getToken(session *sessions.Session) (*oauth2.Toke
 	}
 	token := &oauth2.Token{}
 	if err := json.Unmarshal([]byte(tokenStr), token); err != nil {
+		h.Logger.Errorf("AuthorizationHandler: error decoding JWT token: %v", err)
 		return nil, false
 	}
 	return token, true
