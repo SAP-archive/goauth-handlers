@@ -7,5 +7,8 @@ mv goauth_handlers/ $location
 
 cd $location
 
+# setting the timezone is necessary for getting corret token expirity date
+export TZ='Asia/Kolkata'
+
 go get -t ./...
 go test ./...
