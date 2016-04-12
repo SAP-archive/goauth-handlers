@@ -18,6 +18,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+const sessionName = "goauth"
+const tokenField = "token"
+const targetURLField = "targetUrl"
+
 type callCountHandler int
 
 func (h *callCountHandler) ServeHTTP(http.ResponseWriter, *http.Request) {
@@ -65,8 +69,8 @@ var _ = Describe("AuthorizationHandler", func() {
 		}
 
 		sessionStore = new(fakes.FakeSessionStore)
-		session = sessions.NewSession(sessionStore, SessionName)
-		session.Values["token"] = tokenToString(oauthToken)
+		session = sessions.NewSession(sessionStore, sessionName)
+		session.Values[tokenField] = tokenToString(oauthToken)
 		sessionStore.GetReturns(session, nil)
 
 		tokenProvider = new(fakes.FakeTokenProvider)
@@ -107,7 +111,7 @@ var _ = Describe("AuthorizationHandler", func() {
 			Ω(sessionStore.GetCallCount()).Should(Equal(1))
 			argRequest, argName := sessionStore.GetArgsForCall(0)
 			Ω(argRequest).Should(Equal(request))
-			Ω(argName).Should(Equal(SessionName))
+			Ω(argName).Should(Equal(sessionName))
 		})
 
 		It("should decode the token", func() {
@@ -128,7 +132,7 @@ var _ = Describe("AuthorizationHandler", func() {
 
 	itShouldRedirectToLogin := func() {
 		It("should remove token from session", func() {
-			Ω(session.Values).ShouldNot(HaveKey("token"))
+			Ω(session.Values).ShouldNot(HaveKey(tokenField))
 		})
 
 		It("should store the request URL in the session", func() {
@@ -164,7 +168,7 @@ var _ = Describe("AuthorizationHandler", func() {
 
 	Context("when session does not contain token", func() {
 		BeforeEach(func() {
-			delete(session.Values, "token")
+			delete(session.Values, tokenField)
 		})
 
 		itShouldRedirectToLogin()
@@ -172,7 +176,7 @@ var _ = Describe("AuthorizationHandler", func() {
 
 	Context("when token in session is not string", func() {
 		BeforeEach(func() {
-			session.Values["token"] = 1
+			session.Values[tokenField] = 1
 		})
 
 		itShouldRedirectToLogin()
@@ -180,11 +184,13 @@ var _ = Describe("AuthorizationHandler", func() {
 
 	Context("when token in session is not a valid json", func() {
 		BeforeEach(func() {
-			session.Values["token"] = "{"
+			session.Values[tokenField] = "{"
 		})
 
-		It("should log", func() {
+		It("should log error", func() {
 			Ω(logger.ErrorfCallCount()).Should(Equal(1))
+			format, _ := logger.ErrorfArgsForCall(0)
+			Ω(format).Should(Equal("AuthorizationHandler: error decoding JWT token: %v"))
 		})
 
 		itShouldRedirectToLogin()
@@ -193,15 +199,21 @@ var _ = Describe("AuthorizationHandler", func() {
 	Context("when token is expired", func() {
 		BeforeEach(func() {
 			oauthToken.Expiry = time.Now().Add(-time.Hour)
-			session.Values["token"] = tokenToString(oauthToken)
+			session.Values[tokenField] = tokenToString(oauthToken)
 		})
 
 		itShouldRedirectToLogin()
 	})
 
-	Context("when token info decoding fails", func() {
+	Context("when token info extracting fails", func() {
 		BeforeEach(func() {
 			tokenDecoder.DecodeReturns(token.Info{}, errors.New("Could not parse token!"))
+		})
+
+		It("should log error", func() {
+			Ω(logger.ErrorfCallCount()).Should(Equal(1))
+			format, _ := logger.ErrorfArgsForCall(0)
+			Ω(format).Should(Equal("AuthorizationHandler: error extracting token info: %v\n"))
 		})
 
 		It("should return internal server error", func() {
@@ -213,6 +225,12 @@ var _ = Describe("AuthorizationHandler", func() {
 		BeforeEach(func() {
 			oauthTokenInfo.Scopes = []string{"messages"}
 			tokenDecoder.DecodeReturns(oauthTokenInfo, nil)
+		})
+
+		It("should log info", func() {
+			Ω(logger.PrintfCallCount()).Should(Equal(1))
+			format, _ := logger.PrintfArgsForCall(0)
+			Ω(format).Should(Equal("AuthorizationHandler: denying access because of missing scope.\n"))
 		})
 
 		It("should return forbidden", func() {
@@ -233,6 +251,8 @@ var _ = Describe("CallbackHandler", func() {
 	var sessionStore *fakes.FakeSessionStore
 	var session *sessions.Session
 
+	var logger *fakes.FakeLogger
+
 	var handler http.Handler
 
 	var request *http.Request
@@ -240,8 +260,8 @@ var _ = Describe("CallbackHandler", func() {
 
 	BeforeEach(func() {
 		sessionStore = new(fakes.FakeSessionStore)
-		session = sessions.NewSession(sessionStore, SessionName)
-		session.Values["targetUrl"] = originalURL
+		session = sessions.NewSession(sessionStore, sessionName)
+		session.Values[targetURLField] = originalURL
 		session.Values["state"] = oauthState
 		sessionStore.GetReturns(session, nil)
 
@@ -254,9 +274,12 @@ var _ = Describe("CallbackHandler", func() {
 		tokenProvider = new(fakes.FakeTokenProvider)
 		tokenProvider.RequestTokenReturns(oauthToken, nil)
 
+		logger = new(fakes.FakeLogger)
+
 		handler = &CallbackHandler{
 			Provider: tokenProvider,
 			Store:    sessionStore,
+			Logger:   logger,
 		}
 
 		var err error
@@ -279,7 +302,7 @@ var _ = Describe("CallbackHandler", func() {
 			Ω(sessionStore.GetCallCount()).Should(Equal(1))
 			argRequest, argName := sessionStore.GetArgsForCall(0)
 			Ω(argRequest).Should(Equal(request))
-			Ω(argName).Should(Equal(SessionName))
+			Ω(argName).Should(Equal(sessionName))
 		})
 
 		It("should remove state parameter from session", func() {
@@ -287,7 +310,7 @@ var _ = Describe("CallbackHandler", func() {
 		})
 
 		It("should remove original url from session", func() {
-			Ω(session.Values).ShouldNot(HaveKey("targetUrl"))
+			Ω(session.Values).ShouldNot(HaveKey(targetURLField))
 		})
 
 		It("should request a token", func() {
@@ -297,7 +320,7 @@ var _ = Describe("CallbackHandler", func() {
 		})
 
 		It("should store token in session", func() {
-			tokenObj, exists := session.Values["token"]
+			tokenObj, exists := session.Values[tokenField]
 			Ω(exists).Should(BeTrue())
 			tokenString, isString := tokenObj.(string)
 			Ω(isString).Should(BeTrue())
@@ -365,6 +388,14 @@ var _ = Describe("CallbackHandler", func() {
 			request.Form.Add("error", "unauthorized_client")
 		})
 
+		It("should log the returned error", func() {
+			Ω(logger.ErrorfCallCount()).Should(Equal(1))
+			format, args := logger.ErrorfArgsForCall(0)
+			Ω(format).Should(Equal("CallbackHandler: OAuth provider error: %q\n"))
+			Ω(len(args)).Should(Equal(1))
+			Ω(args[0]).Should(Equal("unauthorized_client"))
+		})
+
 		itShouldDeleteSession()
 
 		itShouldReturnInternalServerError()
@@ -392,7 +423,7 @@ var _ = Describe("CallbackHandler", func() {
 
 	Context("when original URL parameter is missing from session", func() {
 		BeforeEach(func() {
-			delete(session.Values, "targetUrl")
+			delete(session.Values, targetURLField)
 		})
 
 		itShouldDeleteSession()
@@ -402,7 +433,7 @@ var _ = Describe("CallbackHandler", func() {
 
 	Context("when target URL parameter in session is not string", func() {
 		BeforeEach(func() {
-			session.Values["targetUrl"] = 1
+			session.Values[targetURLField] = 1
 		})
 
 		itShouldDeleteSession()

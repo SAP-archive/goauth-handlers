@@ -9,6 +9,12 @@ import (
 	"golang.org/x/oauth2"
 )
 
+type Info struct {
+	UserID   string   `json:"user_id"`
+	UserName string   `json:"user_name"`
+	Scopes   []string `json:"scope"`
+}
+
 var DefaultDecoder = Decoder{}
 
 type Decoder struct{}

@@ -43,9 +43,9 @@ type Logger interface {
 	Errorf(format string, args ...interface{})
 }
 
-// TODO(ivan): does this need to be public?
-const SessionName = "goauth"
-const sessionTokenField = "token"
+const sessionName = "goauth"
+const tokenField = "token"
+const targetURLField = "targetUrl"
 
 type AuthorizationHandler struct {
 	Handler        http.Handler
@@ -53,31 +53,26 @@ type AuthorizationHandler struct {
 	Decoder        TokenDecoder
 	Store          SessionStore
 	RequiredScopes []string
-	// TODO(ivan): Determine what Logger should include,
-	// and allow one to pass in concrete implementation.
-	Logger Logger
+	Logger         Logger
 }
 
 func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	session, err := h.Store.Get(req, SessionName)
-	// TODO(ivan): add test for this
-	if err != nil {
-		// TODO(ivan): log and fix response message
-		if h.Logger != nil {
-			h.Logger.Errorf("AuthorizationHandler: error getting session %q: %v\n", SessionName, err)
-		}
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	// We're ignoring the error resulted from decoding an
+	// existing session: Get() always returns a session, even if empty.
+	session, _ := h.Store.Get(req, sessionName)
 
 	token, ok := h.getToken(session)
 	if !ok || !token.Valid() {
-		delete(session.Values, sessionTokenField)
-		session.Values["targetUrl"] = req.URL.String()
+		delete(session.Values, tokenField)
+		session.Values[targetURLField] = req.URL.String()
 
 		state := uuid.NewV4().String()
 		session.Values["state"] = state
-		session.Save(req, w)
+
+		if err := session.Save(req, w); err != nil {
+			h.Logger.Errorf("AuthorizationHandler: error saving session: %v\n", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		}
 
 		http.Redirect(w, req, h.Provider.LoginURL(state), http.StatusFound)
 		return
@@ -85,15 +80,13 @@ func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 	info, err := h.Decoder.Decode(token)
 	if err != nil {
-		// TODO(ivan): log and fix response message
 		if h.Logger != nil {
-			h.Logger.Errorf("AuthorizationHandler: error decoding token: %v\n", err)
+			h.Logger.Errorf("AuthorizationHandler: error extracting token info: %v\n", err)
 		}
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	if hasMissingScope(info.Scopes, h.RequiredScopes) {
-		// TODO(ivan): log and fix response message
 		if h.Logger != nil {
 			h.Logger.Printf("AuthorizationHandler: denying access because of missing scope.\n")
 		}
@@ -103,9 +96,8 @@ func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	h.Handler.ServeHTTP(w, req)
 }
 
-// TODO(ivan): maybe return token, bool and error?
 func (h *AuthorizationHandler) getToken(session *sessions.Session) (*oauth2.Token, bool) {
-	raw, ok := session.Values[sessionTokenField]
+	raw, ok := session.Values[tokenField]
 	if !ok {
 		return nil, false
 	}
@@ -139,13 +131,18 @@ func hasMissingScope(actual, expected []string) bool {
 type CallbackHandler struct {
 	Provider TokenProvider
 	Store    SessionStore
+	Logger   Logger
 }
 
 func (h *CallbackHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// TODO(ivan): why ignore err here?
-	session, _ := h.Store.Get(req, SessionName)
+	// We're ignoring the error resulted from decoding an
+	// existing session: Get() always returns a session, even if empty.
+	session, _ := h.Store.Get(req, sessionName)
 
 	if errParam := req.FormValue("error"); errParam != "" {
+		if h.Logger != nil {
+			h.Logger.Errorf("CallbackHandler: OAuth provider error: %q\n", errParam)
+		}
 		session.Values = nil
 		session.Save(req, w)
 		switch errParam {
@@ -157,7 +154,7 @@ func (h *CallbackHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	clearSession := sessionCleaner(session, w, req)
+	clearSession := h.sessionCleaner(session, w, req)
 	state := req.FormValue("state")
 	if state == "" {
 		clearSession("Missing state query parameter.", http.StatusBadRequest)
@@ -170,13 +167,12 @@ func (h *CallbackHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// TODO(ivan): extract targetUrl as constant
-	targetURL, ok := session.Values["targetUrl"].(string)
+	targetURL, ok := session.Values[targetURLField].(string)
 	if !ok {
 		clearSession("Missing redirect URL.", http.StatusBadRequest)
 		return
 	}
-	delete(session.Values, "targetUrl")
+	delete(session.Values, targetURLField)
 
 	expectedState, ok := session.Values["state"].(string)
 	if !ok {
@@ -204,14 +200,21 @@ func (h *CallbackHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	session.Values["token"] = string(tokenBytes)
-	session.Save(req, w)
+	if err := session.Save(req, w); err != nil {
+		h.Logger.Errorf("CallbackHandler: error saving session: %v\n", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+
 	http.Redirect(w, req, targetURL, http.StatusFound)
 }
 
-func sessionCleaner(s *sessions.Session, w http.ResponseWriter, req *http.Request) func(string, int) {
+func (h *CallbackHandler) sessionCleaner(s *sessions.Session, w http.ResponseWriter, req *http.Request) func(string, int) {
 	return func(error string, code int) {
 		s.Values = nil
-		s.Save(req, w)
+		if err := s.Save(req, w); err != nil {
+			h.Logger.Errorf("CallbackHandler: error saving session: %v\n", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		}
 		http.Error(w, error, code)
 	}
 }
