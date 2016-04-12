@@ -1,0 +1,8 @@
+---
+platform: linux
+
+image: docker:///godofcontainers/ci-environment
+inputs:
+  - name: goauth_handlers
+run:
+  path: goauth_handlers/concourse/tasks/test.sh
