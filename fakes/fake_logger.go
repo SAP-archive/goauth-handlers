@@ -4,7 +4,7 @@ package fakes
 import (
 	"sync"
 
-	"github.wdf.sap.corp/cloudfoundry/goauth_handlers"
+	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers"
 )
 
 type FakeLogger struct {

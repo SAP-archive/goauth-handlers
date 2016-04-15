@@ -7,7 +7,7 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/satori/go.uuid"
 
-	"github.wdf.sap.corp/cloudfoundry/goauth_handlers/token"
+	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/token"
 
 	"golang.org/x/oauth2"
 )

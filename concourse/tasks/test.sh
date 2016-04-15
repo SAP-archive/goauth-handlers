@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-location=$GOPATH/src/github.wdf.sap.corp/cloudfoundry/goauth_handlers
+location=$GOPATH/src/github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers
 
 mkdir -p $(dirname $location)
 mv goauth_handlers/ $location

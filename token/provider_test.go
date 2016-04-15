@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/oauth2"
 
-	. "github.wdf.sap.corp/cloudfoundry/goauth_handlers/token"
+	. "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/token"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

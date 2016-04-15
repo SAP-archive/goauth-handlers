@@ -9,9 +9,9 @@ import (
 
 	"golang.org/x/oauth2"
 
-	. "github.wdf.sap.corp/cloudfoundry/goauth_handlers"
-	"github.wdf.sap.corp/cloudfoundry/goauth_handlers/fakes"
-	"github.wdf.sap.corp/cloudfoundry/goauth_handlers/token"
+	. "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers"
+	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/fakes"
+	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/token"
 
 	"github.com/gorilla/sessions"
 	. "github.com/onsi/ginkgo"

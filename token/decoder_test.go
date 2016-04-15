@@ -1,7 +1,7 @@
 package token_test
 
 import (
-	. "github.wdf.sap.corp/cloudfoundry/goauth_handlers/token"
+	. "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/token"
 	"golang.org/x/oauth2"
 
 	. "github.com/onsi/ginkgo"

@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/sessions"
-	"github.wdf.sap.corp/cloudfoundry/goauth_handlers"
+	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers"
 )
 
 type FakeSessionStore struct {
