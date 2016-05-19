@@ -7,5 +7,6 @@ cp -r goauth_handlers/. $location
 
 cd $location
 
+go get github.com/onsi/ginkgo/ginkgo
 go get -t ./...
-go test ./...
+ginkgo -r
