@@ -10,10 +10,11 @@ import (
 	"golang.org/x/oauth2"
 
 	. "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers"
-	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/fakes"
+	fakes "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/goauth_handlersfakes"
+	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/logging/loggingfakes"
+	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/session/sessionfakes"
 	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/token"
 
-	"github.com/gorilla/sessions"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -40,17 +41,15 @@ var _ = Describe("AuthorizationHandler", func() {
 	var oauthTokenInfo token.Info
 
 	var tokenProvider *fakes.FakeTokenProvider
-
 	var tokenDecoder *fakes.FakeTokenDecoder
 
-	var sessionStore *fakes.FakeSessionStore
-	var session *sessions.Session
+	var sessionStore *sessionfakes.FakeStore
+	var session *sessionfakes.FakeSession
 
-	var logger *fakes.FakeLogger
-
+	var logger *loggingfakes.FakeLogger
 	var wrappedHandler *callCountHandler
-	var handler http.Handler
 
+	var handler http.Handler
 	var request *http.Request
 	var response *httptest.ResponseRecorder
 
@@ -68,9 +67,13 @@ var _ = Describe("AuthorizationHandler", func() {
 			Expiry:       time.Now().Add(time.Hour),
 		}
 
-		sessionStore = new(fakes.FakeSessionStore)
-		session = sessions.NewSession(sessionStore, sessionName)
-		session.Values[tokenField] = tokenToString(oauthToken)
+		session = new(sessionfakes.FakeSession)
+		session.NameReturns(sessionName)
+		session.ValuesReturns(map[string]string{
+			tokenField: tokenToString(oauthToken),
+		})
+
+		sessionStore = new(sessionfakes.FakeStore)
 		sessionStore.GetReturns(session, nil)
 
 		tokenProvider = new(fakes.FakeTokenProvider)
@@ -83,7 +86,7 @@ var _ = Describe("AuthorizationHandler", func() {
 		}
 		tokenDecoder = new(fakes.FakeTokenDecoder)
 		tokenDecoder.DecodeReturns(oauthTokenInfo, nil)
-		logger = new(fakes.FakeLogger)
+		logger = new(loggingfakes.FakeLogger)
 
 		wrappedHandler = new(callCountHandler)
 		handler = &AuthorizationHandler{
@@ -132,24 +135,22 @@ var _ = Describe("AuthorizationHandler", func() {
 
 	itShouldRedirectToLogin := func() {
 		It("should remove token from session", func() {
-			Ω(session.Values).ShouldNot(HaveKey(tokenField))
+			Ω(session.Values()).ShouldNot(HaveKey(tokenField))
 		})
 
 		It("should store the request URL in the session", func() {
-			Ω(session.Values["targetUrl"]).Should(Equal(request.URL.String()))
+			Ω(session.Values()["targetUrl"]).Should(Equal(request.URL.String()))
 		})
 
 		It("should store some random state parameter in the session", func() {
-			state, exists := session.Values["state"]
+			state, exists := session.Values()["state"]
 			Ω(exists).Should(BeTrue())
-			_, isString := state.(string)
-			Ω(isString).Should(BeTrue())
+			Ω(state).ShouldNot(BeNil())
 		})
 
 		It("should save the session", func() {
 			Ω(sessionStore.SaveCallCount()).Should(Equal(1))
-			argRequest, argResponse, argSession := sessionStore.SaveArgsForCall(0)
-			Ω(argRequest).Should(Equal(request))
+			argResponse, argSession := sessionStore.SaveArgsForCall(0)
 			Ω(argResponse).Should(Equal(response))
 			Ω(argSession).Should(Equal(session))
 		})
@@ -157,7 +158,7 @@ var _ = Describe("AuthorizationHandler", func() {
 		It("should get login URL from provider", func() {
 			Ω(tokenProvider.LoginURLCallCount()).Should(Equal(1))
 			argState := tokenProvider.LoginURLArgsForCall(0)
-			Ω(argState).Should(Equal(session.Values["state"]))
+			Ω(argState).Should(Equal(session.Values()["state"]))
 		})
 
 		It("should redirect to login URL", func() {
@@ -166,17 +167,22 @@ var _ = Describe("AuthorizationHandler", func() {
 		})
 	}
 
-	Context("when session does not contain token", func() {
+	Context("cannot get session", func() {
 		BeforeEach(func() {
-			delete(session.Values, tokenField)
+			sessionStore.GetReturns(session, errors.New("Could not get session!"))
 		})
 
-		itShouldRedirectToLogin()
+		It("should fail", func() {
+			Ω(response.Code).Should(Equal(http.StatusInternalServerError))
+			Ω(logger.ErrorfCallCount()).Should(Equal(1))
+			format, _ := logger.ErrorfArgsForCall(0)
+			Ω(format).Should(Equal("AuthorizationHandler: error getting session: %v\n"))
+		})
 	})
 
-	Context("when token in session is not string", func() {
+	Context("when session does not contain token", func() {
 		BeforeEach(func() {
-			session.Values[tokenField] = 1
+			delete(session.Values(), tokenField)
 		})
 
 		itShouldRedirectToLogin()
@@ -184,7 +190,7 @@ var _ = Describe("AuthorizationHandler", func() {
 
 	Context("when token in session is not a valid json", func() {
 		BeforeEach(func() {
-			session.Values[tokenField] = "{"
+			session.Values()[tokenField] = "{"
 		})
 
 		It("should log error", func() {
@@ -199,7 +205,7 @@ var _ = Describe("AuthorizationHandler", func() {
 	Context("when token is expired", func() {
 		BeforeEach(func() {
 			oauthToken.Expiry = time.Now().Add(-time.Hour)
-			session.Values[tokenField] = tokenToString(oauthToken)
+			session.Values()[tokenField] = tokenToString(oauthToken)
 		})
 
 		itShouldRedirectToLogin()
@@ -247,22 +253,22 @@ var _ = Describe("CallbackHandler", func() {
 
 	var oauthToken *oauth2.Token
 	var tokenProvider *fakes.FakeTokenProvider
-
-	var sessionStore *fakes.FakeSessionStore
-	var session *sessions.Session
-
-	var logger *fakes.FakeLogger
-
+	var sessionStore *sessionfakes.FakeStore
+	var session *sessionfakes.FakeSession
+	var logger *loggingfakes.FakeLogger
 	var handler http.Handler
-
 	var request *http.Request
 	var response *httptest.ResponseRecorder
 
 	BeforeEach(func() {
-		sessionStore = new(fakes.FakeSessionStore)
-		session = sessions.NewSession(sessionStore, sessionName)
-		session.Values[targetURLField] = originalURL
-		session.Values["state"] = oauthState
+		session = new(sessionfakes.FakeSession)
+		session.NameReturns(sessionName)
+		session.ValuesReturns(map[string]string{
+			targetURLField: originalURL,
+			"state":        oauthState,
+		})
+
+		sessionStore = new(sessionfakes.FakeStore)
 		sessionStore.GetReturns(session, nil)
 
 		oauthToken = &oauth2.Token{
@@ -274,7 +280,7 @@ var _ = Describe("CallbackHandler", func() {
 		tokenProvider = new(fakes.FakeTokenProvider)
 		tokenProvider.RequestTokenReturns(oauthToken, nil)
 
-		logger = new(fakes.FakeLogger)
+		logger = new(loggingfakes.FakeLogger)
 
 		handler = &CallbackHandler{
 			Provider: tokenProvider,
@@ -306,11 +312,11 @@ var _ = Describe("CallbackHandler", func() {
 		})
 
 		It("should remove state parameter from session", func() {
-			Ω(session.Values).ShouldNot(HaveKey("state"))
+			Ω(session.Values()).ShouldNot(HaveKey("state"))
 		})
 
 		It("should remove original url from session", func() {
-			Ω(session.Values).ShouldNot(HaveKey(targetURLField))
+			Ω(session.Values()).ShouldNot(HaveKey(targetURLField))
 		})
 
 		It("should request a token", func() {
@@ -320,10 +326,10 @@ var _ = Describe("CallbackHandler", func() {
 		})
 
 		It("should store token in session", func() {
-			tokenObj, exists := session.Values[tokenField]
+			tokenString, exists := session.Values()[tokenField]
 			Ω(exists).Should(BeTrue())
-			tokenString, isString := tokenObj.(string)
-			Ω(isString).Should(BeTrue())
+			Ω(tokenString).ShouldNot(BeNil())
+
 			var token oauth2.Token
 			err := json.Unmarshal([]byte(tokenString), &token)
 			Ω(err).ShouldNot(HaveOccurred())
@@ -332,8 +338,7 @@ var _ = Describe("CallbackHandler", func() {
 
 		It("should save the session", func() {
 			Ω(sessionStore.SaveCallCount()).Should(Equal(1))
-			argRequest, argResponse, argSession := sessionStore.SaveArgsForCall(0)
-			Ω(argRequest).Should(Equal(request))
+			argResponse, argSession := sessionStore.SaveArgsForCall(0)
 			Ω(argResponse).Should(Equal(response))
 			Ω(argSession).Should(Equal(session))
 		})
@@ -346,10 +351,9 @@ var _ = Describe("CallbackHandler", func() {
 
 	itShouldDeleteSession := func() {
 		It("should delete session", func() {
-			Ω(session.Values).Should(BeNil())
+			Ω(session.ClearCallCount()).Should(Equal(1))
 			Ω(sessionStore.SaveCallCount()).Should(Equal(1))
-			argRequest, argResponse, argSession := sessionStore.SaveArgsForCall(0)
-			Ω(argRequest).Should(Equal(request))
+			argResponse, argSession := sessionStore.SaveArgsForCall(0)
 			Ω(argResponse).Should(Equal(response))
 			Ω(argSession).Should(Equal(session))
 		})
@@ -372,6 +376,20 @@ var _ = Describe("CallbackHandler", func() {
 			Ω(response.Code).Should(Equal(http.StatusForbidden))
 		})
 	}
+
+	Context("when getting session fails", func() {
+		BeforeEach(func() {
+			sessionStore.GetReturns(session, errors.New("Could not get session!"))
+		})
+
+		itShouldReturnInternalServerError()
+
+		It("should log the returned error", func() {
+			Ω(logger.ErrorfCallCount()).Should(Equal(1))
+			format, _ := logger.ErrorfArgsForCall(0)
+			Ω(format).Should(Equal("CallbackHandler: Could not get session: %q\n"))
+		})
+	})
 
 	Context("when UAA responds with invalid_scope error param", func() {
 		BeforeEach(func() {
@@ -401,6 +419,17 @@ var _ = Describe("CallbackHandler", func() {
 		itShouldReturnInternalServerError()
 	})
 
+	Context("when UAA responds with error param other than invalid_scope", func() {
+		BeforeEach(func() {
+			request.Form.Add("error", "unauthorized_client")
+		})
+
+		itShouldDeleteSession()
+
+		itShouldReturnInternalServerError()
+
+	})
+
 	Context("when state parameter in request is missing", func() {
 		BeforeEach(func() {
 			request.Form.Del("state")
@@ -423,17 +452,7 @@ var _ = Describe("CallbackHandler", func() {
 
 	Context("when original URL parameter is missing from session", func() {
 		BeforeEach(func() {
-			delete(session.Values, targetURLField)
-		})
-
-		itShouldDeleteSession()
-
-		itShouldReturnBadRequest()
-	})
-
-	Context("when target URL parameter in session is not string", func() {
-		BeforeEach(func() {
-			session.Values[targetURLField] = 1
+			delete(session.Values(), targetURLField)
 		})
 
 		itShouldDeleteSession()
@@ -443,17 +462,7 @@ var _ = Describe("CallbackHandler", func() {
 
 	Context("when state parameter is missing from session", func() {
 		BeforeEach(func() {
-			delete(session.Values, "state")
-		})
-
-		itShouldDeleteSession()
-
-		itShouldReturnBadRequest()
-	})
-
-	Context("when state parameter in session is not string", func() {
-		BeforeEach(func() {
-			session.Values["state"] = 1
+			delete(session.Values(), "state")
 		})
 
 		itShouldDeleteSession()
@@ -463,7 +472,7 @@ var _ = Describe("CallbackHandler", func() {
 
 	Context("when state parameter in request does not equal the session one", func() {
 		BeforeEach(func() {
-			session.Values["state"] = "some_other_value"
+			session.Values()["state"] = "some_other_value"
 		})
 
 		itShouldDeleteSession()
