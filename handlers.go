@@ -13,8 +13,13 @@ import (
 	"golang.org/x/oauth2"
 )
 
+//go:generate counterfeiter . DelegateHandler
 //go:generate counterfeiter . TokenProvider
 //go:generate counterfeiter . TokenDecoder
+
+type DelegateHandler interface {
+	http.Handler
+}
 
 // TokenProvider should be able to echange auth code for access token and
 // generate login url from state string.
@@ -28,43 +33,39 @@ type TokenDecoder interface {
 	Decode(*oauth2.Token) (token.Info, error)
 }
 
-// SessionStore is wrapper for gorilla's Store interface.
-type SessionStore interface {
-	session.Store
-}
-
-const sessionName = "goauth"
-const tokenField = "token"
-const targetURLField = "targetUrl"
+const SessionName = "aker-oauth"
+const SessionTokenKey = "token"
+const SessionStateKey = "state"
+const SessionURLKey = "url"
+const DataUserInfoKey = "oauth.userinfo"
+const DataTokenKey = "oauth.token"
 
 type AuthorizationHandler struct {
-	Handler        http.Handler
+	Handler        DelegateHandler
 	Provider       TokenProvider
 	Decoder        TokenDecoder
-	Store          SessionStore
+	Store          session.Store
 	RequiredScopes []string
 	Logger         logging.Logger
 }
 
 func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	session, err := h.Store.Get(req, sessionName)
+	session, err := h.Store.Get(req, SessionName)
 	if err != nil {
-		h.Logger.Errorf("AuthorizationHandler: error getting session: %v\n", err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
+		h.Logger.Warnf("Could not restore session due to '%s'.", err)
 	}
 
 	token, ok := h.getToken(session)
 	if !ok || !token.Valid() {
-		delete(session.Values(), tokenField)
-		session.Values()[targetURLField] = req.URL.String()
+		delete(session.Values(), SessionTokenKey)
+		session.Values()[SessionURLKey] = req.URL.String()
 
 		state := uuid.NewV4().String()
-		session.Values()["state"] = state
+		session.Values()[SessionStateKey] = state
 
 		if err := h.Store.Save(w, session); err != nil {
-			h.Logger.Errorf("AuthorizationHandler: error saving session: %v\n", err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			h.Logger.Errorf("Could not save session due to '%s'.", err)
+			http.Error(w, "Could not finalize request.", http.StatusInternalServerError)
 		}
 
 		http.Redirect(w, req, h.Provider.LoginURL(state), http.StatusFound)
@@ -73,14 +74,12 @@ func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 	info, err := h.Decoder.Decode(token)
 	if err != nil {
-		h.Logger.Errorf("AuthorizationHandler: error extracting token info: %v\n", err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		h.Logger.Warnf("Could not decode token information due to '%s'.", err)
+		http.Error(w, "Could not process token.", http.StatusInternalServerError)
 		return
 	}
 	if hasMissingScope(info.Scopes, h.RequiredScopes) {
-		if h.Logger != nil {
-			h.Logger.Printf("AuthorizationHandler: denying access because of missing scope.\n")
-		}
+		h.Logger.Printf("Denying access because of missing scope.\n")
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
@@ -88,14 +87,14 @@ func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 }
 
 func (h *AuthorizationHandler) getToken(session session.Session) (*oauth2.Token, bool) {
-	tokenStr, ok := session.Values()[tokenField]
+	tokenStr, ok := session.Values()[SessionTokenKey]
 	if !ok {
 		return nil, false
 	}
 
 	token := &oauth2.Token{}
 	if err := json.Unmarshal([]byte(tokenStr), token); err != nil {
-		h.Logger.Errorf("AuthorizationHandler: error decoding JWT token: %v", err)
+		h.Logger.Errorf("Error decoding JWT token: %v", err)
 		return nil, false
 	}
 	return token, true
@@ -118,26 +117,24 @@ func hasMissingScope(actual, expected []string) bool {
 
 type CallbackHandler struct {
 	Provider TokenProvider
-	Store    SessionStore
+	Store    session.Store
 	Logger   logging.Logger
 }
 
 func (h *CallbackHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	session, err := h.Store.Get(req, sessionName)
-	clearSession := h.sessionCleaner(session, w, req)
-
+	session, err := h.Store.Get(req, SessionName)
 	if err != nil {
-		h.Logger.Errorf("CallbackHandler: Could not get session: %q\n", err)
-		clearSession(http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
+		h.Logger.Warnf("Could not restore session due to '%s'.", err)
 	}
 
+	clearSession := h.sessionCleaner(session, w, req)
+
 	if errParam := req.FormValue("error"); errParam != "" {
-		h.Logger.Errorf("CallbackHandler: OAuth provider error: %q\n", errParam)
 		switch errParam {
 		case "invalid_scope":
 			clearSession("You do not have the required authorization.", http.StatusForbidden)
 		default:
+			h.Logger.Errorf("UAA returned an error authorization grant response '%s'.", errParam)
 			clearSession(http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		}
 		return
@@ -155,13 +152,13 @@ func (h *CallbackHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	targetURL, ok := session.Values()[targetURLField]
+	targetURL, ok := session.Values()[SessionURLKey]
 	if !ok {
 		h.Logger.Warnf("User does not have an original request URL in their session.")
 		clearSession("Missing redirect URL.", http.StatusBadRequest)
 		return
 	}
-	delete(session.Values(), targetURLField)
+	delete(session.Values(), SessionURLKey)
 
 	expectedState, ok := session.Values()["state"]
 	if !ok {
@@ -169,7 +166,7 @@ func (h *CallbackHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		clearSession("Missing state.", http.StatusBadRequest)
 		return
 	}
-	delete(session.Values(), "state")
+	delete(session.Values(), SessionStateKey)
 
 	if state != expectedState {
 		h.Logger.Warnf("State from UAA and state in user session do not match (Source IP: %s)!", req.RemoteAddr)
@@ -191,9 +188,9 @@ func (h *CallbackHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		panic(err)
 	}
 
-	session.Values()["token"] = string(tokenBytes)
+	session.Values()[SessionTokenKey] = string(tokenBytes)
 	if err := h.Store.Save(w, session); err != nil {
-		h.Logger.Errorf("CallbackHandler: error saving session: %v\n", err)
+		h.Logger.Errorf("Error saving session: %v\n", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 
@@ -204,7 +201,7 @@ func (h *CallbackHandler) sessionCleaner(s session.Session, w http.ResponseWrite
 	return func(error string, code int) {
 		s.Clear()
 		if err := h.Store.Save(w, s); err != nil {
-			h.Logger.Errorf("CallbackHandler: error saving session: %v\n", err)
+			h.Logger.Errorf("Error saving session: %v\n", err)
 		}
 		http.Error(w, error, code)
 	}
