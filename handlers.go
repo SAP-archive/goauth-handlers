@@ -33,7 +33,7 @@ type TokenDecoder interface {
 	Decode(*oauth2.Token) (token.Info, error)
 }
 
-const SessionName = "aker-oauth"
+const SessionName = "goauth"
 const SessionTokenKey = "token"
 const SessionStateKey = "state"
 const SessionURLKey = "url"
