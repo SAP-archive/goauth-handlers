@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/logging"
 	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/session"
 )
 
 const sessionPrefix = "goauth-"
+
+const year time.Duration = time.Hour * 24 * 365
 
 // NewStore Creates new store
 func NewStore(encryptor Encryptor, logger logging.Logger) session.Store {
@@ -114,13 +117,10 @@ func (s *store) writeSession(resp http.ResponseWriter, session *cookieSession) e
 		http.SetCookie(resp, cookie)
 	}
 	// footer cookie, in case of old session
-	http.SetCookie(resp, &http.Cookie{
-		Name:   getCookieName(session.name, len(blocks)+1),
-		Value:  "",
-		MaxAge: -1,
-		Path:   "/",
-	})
-
+	http.SetCookie(
+		resp,
+		getExpiryCookie(getCookieName(session.name, len(blocks)+1)),
+	)
 	return nil
 }
 
@@ -141,18 +141,26 @@ func (s *store) splitValueString(value string, blockSize int) []string {
 
 func (s *store) eraseSession(resp http.ResponseWriter, session *cookieSession) error {
 	for i := 1; i <= session.initialCookieCount; i++ {
-		http.SetCookie(resp, &http.Cookie{
-			Name:   getCookieName(session.Name(), i),
-			Value:  "",
-			MaxAge: -1,
-			Path:   "/",
-		})
+		http.SetCookie(
+			resp,
+			getExpiryCookie(getCookieName(session.Name(), i)),
+		)
 	}
 	return nil
 }
 
 func getCookieName(sessionName string, index int) string {
 	return fmt.Sprintf("%s%s-%d", sessionPrefix, sessionName, index)
+}
+
+func getExpiryCookie(name string) *http.Cookie {
+	return &http.Cookie{
+		Name:    name,
+		Value:   "",
+		MaxAge:  -1,
+		Path:    "/",
+		Expires: time.Now().Add(-year),
+	}
 }
 
 type cookieSession struct {

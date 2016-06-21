@@ -148,8 +148,8 @@ var _ = Describe("Store", func() {
 					setCookieValues, found := response.HeaderMap["Set-Cookie"]
 					Ω(found).Should(BeTrue())
 					Ω(setCookieValues).Should(HaveLen(2))
-					Ω(setCookieValues).Should(ContainElement("goauth-test-session-1=" + url.QueryEscape(expectedContent) + "-encrypted; Path=/"))
-					Ω(setCookieValues).Should(ContainElement("goauth-test-session-2=; Path=/; Max-Age=0"))
+					Ω(setCookieValues[0]).Should(MatchRegexp("goauth-test-session-1=%s-encrypted; Path=/", url.QueryEscape(expectedContent)))
+					Ω(setCookieValues[1]).Should(MatchRegexp("goauth-test-session-2=; Path=/; Expires=.*; Max-Age=0"))
 				})
 			})
 
@@ -167,9 +167,9 @@ var _ = Describe("Store", func() {
 					setCookieValues, found := response.HeaderMap["Set-Cookie"]
 					Ω(found).Should(BeTrue())
 					Ω(setCookieValues).Should(HaveLen(3))
-					Ω(setCookieValues).Should(ContainElement("goauth-test-session-1=" + url.QueryEscape(expectedContent[:MaxCookieValueSize]) + "-encrypted; Path=/"))
-					Ω(setCookieValues).Should(ContainElement("goauth-test-session-2=" + url.QueryEscape(expectedContent[MaxCookieValueSize:]) + "-encrypted; Path=/"))
-					Ω(setCookieValues).Should(ContainElement("goauth-test-session-3=; Path=/; Max-Age=0"))
+					Ω(setCookieValues[0]).Should(MatchRegexp("goauth-test-session-1=%s-encrypted; Path=/", url.QueryEscape(expectedContent[:MaxCookieValueSize])))
+					Ω(setCookieValues[1]).Should(MatchRegexp("goauth-test-session-2=%s-encrypted; Path=/", url.QueryEscape(expectedContent[MaxCookieValueSize:])))
+					Ω(setCookieValues[2]).Should(MatchRegexp("goauth-test-session-3=; Path=/; Expires=.*; Max-Age=0"))
 				})
 			})
 
@@ -243,9 +243,9 @@ var _ = Describe("Store", func() {
 						setCookieValues, found := response.HeaderMap["Set-Cookie"]
 						Ω(found).Should(BeTrue())
 						Ω(setCookieValues).Should(HaveLen(3))
-						Ω(setCookieValues).Should(ContainElement("goauth-test-session-1=; Path=/; Max-Age=0"))
-						Ω(setCookieValues).Should(ContainElement("goauth-test-session-2=; Path=/; Max-Age=0"))
-						Ω(setCookieValues).Should(ContainElement("goauth-test-session-3=; Path=/; Max-Age=0"))
+						Ω(setCookieValues[0]).Should(MatchRegexp("goauth-test-session-1=; Path=/; Expires=.*; Max-Age=0"))
+						Ω(setCookieValues[1]).Should(MatchRegexp("goauth-test-session-2=; Path=/; Expires=.*; Max-Age=0"))
+						Ω(setCookieValues[2]).Should(MatchRegexp("goauth-test-session-3=; Path=/; Expires=.*; Max-Age=0"))
 					})
 				})
 			})
