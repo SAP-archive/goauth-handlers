@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -117,12 +118,14 @@ var _ = Describe("Handler", func() {
 
 			wrappedHandler = new(fakes.FakeDelegateHandler)
 			handler = &AuthorizationHandler{
-				Provider:       tokenProvider,
-				Decoder:        tokenDecoder,
-				Store:          sessionStore,
-				RequiredScopes: []string{"logs", "messages"},
-				Handler:        wrappedHandler,
-				Logger:         logger,
+				Provider:               tokenProvider,
+				Decoder:                tokenDecoder,
+				Store:                  sessionStore,
+				RequiredScopes:         []string{"logs", "messages"},
+				Handler:                wrappedHandler,
+				Logger:                 logger,
+				StoreTokenInHeaders:    false,
+				StoreUserInfoInHeaders: false,
 			}
 		})
 
@@ -155,6 +158,48 @@ var _ = Describe("Handler", func() {
 
 		Context("when everything goes as planned", func() {
 			itShouldPerformAnAuthorizationFlow()
+
+			It("should not save the token inside the headers", func() {
+				Ω(request.Header).ShouldNot(HaveKey(HeaderOAuthAccessToken))
+				Ω(request.Header).ShouldNot(HaveKey(HeaderOAuthRefreshToken))
+				Ω(request.Header).ShouldNot(HaveKey(HeaderOAuthTokenType))
+				Ω(request.Header).ShouldNot(HaveKey(HeaderOAuthTokenExpiry))
+			})
+
+			It("should not save user info inside the headers", func() {
+				Ω(request.Header).ShouldNot(HaveKey(HeaderOAuthInfoUserID))
+				Ω(request.Header).ShouldNot(HaveKey(HeaderOAuthInfoUserName))
+				Ω(request.Header).ShouldNot(HaveKey(HeaderOAuthInfoScopes))
+			})
+
+			Context("when token should be stored", func() {
+				BeforeEach(func() {
+					handler.(*AuthorizationHandler).StoreTokenInHeaders = true
+				})
+
+				itShouldPerformAnAuthorizationFlow()
+
+				It("should save the token inside the headers", func() {
+					Ω(request.Header.Get(HeaderOAuthAccessToken)).Should(Equal(oauthToken.AccessToken))
+					Ω(request.Header.Get(HeaderOAuthRefreshToken)).Should(Equal(oauthToken.RefreshToken))
+					Ω(request.Header.Get(HeaderOAuthTokenType)).Should(Equal(oauthToken.TokenType))
+					Ω(request.Header.Get(HeaderOAuthTokenExpiry)).Should(Equal(strconv.FormatInt(oauthToken.Expiry.UnixNano(), 10)))
+				})
+			})
+
+			Context("when user info should be stored", func() {
+				BeforeEach(func() {
+					handler.(*AuthorizationHandler).StoreUserInfoInHeaders = true
+				})
+
+				itShouldPerformAnAuthorizationFlow()
+
+				It("should save user info inside the headers", func() {
+					Ω(request.Header.Get(HeaderOAuthInfoUserID)).Should(Equal(oauthTokenInfo.UserID))
+					Ω(request.Header.Get(HeaderOAuthInfoUserName)).Should(Equal(oauthTokenInfo.UserName))
+					Ω(request.Header[HeaderOAuthInfoScopes]).Should(Equal(oauthTokenInfo.Scopes))
+				})
+			})
 		})
 
 		Context("when getting session fails", func() {

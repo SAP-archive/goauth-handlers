@@ -3,6 +3,7 @@ package goauth_handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/satori/go.uuid"
 
@@ -40,13 +41,23 @@ const SessionURLKey = "url"
 const DataUserInfoKey = "oauth.userinfo"
 const DataTokenKey = "oauth.token"
 
+const HeaderOAuthAccessToken = "X-Goauth-Oauth-Token-Access-Token"
+const HeaderOAuthRefreshToken = "X-Goauth-Oauth-Token-Refresh-Token"
+const HeaderOAuthTokenType = "X-Goauth-Oauth-Token-Type"
+const HeaderOAuthTokenExpiry = "X-Goauth-Oauth-Token-Expiry"
+const HeaderOAuthInfoUserID = "X-Goauth-Oauth-Info-User-Id"
+const HeaderOAuthInfoUserName = "X-Goauth-Oauth-Info-User-Name"
+const HeaderOAuthInfoScopes = "X-Goauth-Oauth-Info-User-Scopes"
+
 type AuthorizationHandler struct {
-	Handler        DelegateHandler
-	Provider       TokenProvider
-	Decoder        TokenDecoder
-	Store          session.Store
-	RequiredScopes []string
-	Logger         gologger.Logger
+	Handler                DelegateHandler
+	Provider               TokenProvider
+	Decoder                TokenDecoder
+	Store                  session.Store
+	RequiredScopes         []string
+	Logger                 gologger.Logger
+	StoreTokenInHeaders    bool
+	StoreUserInfoInHeaders bool
 }
 
 func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -83,6 +94,21 @@ func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
+
+	if h.StoreTokenInHeaders {
+		req.Header.Set(HeaderOAuthAccessToken, token.AccessToken)
+		req.Header.Set(HeaderOAuthRefreshToken, token.RefreshToken)
+		req.Header.Set(HeaderOAuthTokenType, token.TokenType)
+		req.Header.Set(HeaderOAuthTokenExpiry, strconv.FormatInt(token.Expiry.UnixNano(), 10))
+	}
+	if h.StoreUserInfoInHeaders {
+		req.Header.Set(HeaderOAuthInfoUserID, info.UserID)
+		req.Header.Set(HeaderOAuthInfoUserName, info.UserName)
+		for _, scope := range info.Scopes {
+			req.Header.Add(HeaderOAuthInfoScopes, scope)
+		}
+	}
+
 	h.Handler.ServeHTTP(w, req)
 }
 
