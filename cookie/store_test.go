@@ -12,8 +12,8 @@ import (
 
 	. "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/cookie"
 	cookie_fakes "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/cookie/cookiefakes"
-	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/logging/loggingfakes"
 	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/session"
+	"github.infra.hana.ondemand.com/cloudfoundry/gologger/gologgerfakes"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -47,7 +47,7 @@ var _ = Describe("Store", func() {
 			return nil
 		}
 
-		logger := new(loggingfakes.FakeLogger)
+		logger := new(gologgerfakes.FakeLogger)
 
 		store = NewStore(encryptor, logger)
 	})

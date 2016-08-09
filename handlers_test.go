@@ -11,9 +11,9 @@ import (
 
 	. "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers"
 	fakes "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/goauth_handlersfakes"
-	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/logging/loggingfakes"
 	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/session/sessionfakes"
 	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/token"
+	"github.infra.hana.ondemand.com/cloudfoundry/gologger/gologgerfakes"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -22,7 +22,7 @@ import (
 var _ = Describe("Handler", func() {
 	const unsetResponseCode = -1
 
-	var logger *loggingfakes.FakeLogger
+	var logger *gologgerfakes.FakeLogger
 
 	var sessionStore *sessionfakes.FakeStore
 	var session *sessionfakes.FakeSession
@@ -37,7 +37,7 @@ var _ = Describe("Handler", func() {
 	var handler http.Handler
 
 	BeforeEach(func() {
-		logger = new(loggingfakes.FakeLogger)
+		logger = new(gologgerfakes.FakeLogger)
 
 		session = new(sessionfakes.FakeSession)
 		session.NameReturns(SessionName)

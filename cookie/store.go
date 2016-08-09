@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/logging"
 	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/session"
+	"github.infra.hana.ondemand.com/cloudfoundry/gologger"
 )
 
 const sessionPrefix = "goauth-"
@@ -16,7 +16,7 @@ const sessionPrefix = "goauth-"
 const year time.Duration = time.Hour * 24 * 365
 
 // NewStore Creates new store
-func NewStore(encryptor Encryptor, logger logging.Logger) session.Store {
+func NewStore(encryptor Encryptor, logger gologger.Logger) session.Store {
 	return &store{
 		encryptor: encryptor,
 		logging:   logger,
@@ -25,7 +25,7 @@ func NewStore(encryptor Encryptor, logger logging.Logger) session.Store {
 
 type store struct {
 	encryptor Encryptor
-	logging   logging.Logger
+	logging   gologger.Logger
 }
 
 func (s *store) Get(req *http.Request, name string) (session.Session, error) {

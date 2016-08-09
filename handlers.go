@@ -6,9 +6,9 @@ import (
 
 	"github.com/satori/go.uuid"
 
-	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/logging"
 	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/session"
 	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/token"
+	"github.infra.hana.ondemand.com/cloudfoundry/gologger"
 
 	"golang.org/x/oauth2"
 )
@@ -46,7 +46,7 @@ type AuthorizationHandler struct {
 	Decoder        TokenDecoder
 	Store          session.Store
 	RequiredScopes []string
-	Logger         logging.Logger
+	Logger         gologger.Logger
 }
 
 func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -79,7 +79,7 @@ func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		return
 	}
 	if hasMissingScope(info.Scopes, h.RequiredScopes) {
-		h.Logger.Printf("Denying access because of missing scope.\n")
+		h.Logger.Infof("Denying access because of missing scope.\n")
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
@@ -118,7 +118,7 @@ func hasMissingScope(actual, expected []string) bool {
 type CallbackHandler struct {
 	Provider TokenProvider
 	Store    session.Store
-	Logger   logging.Logger
+	Logger   gologger.Logger
 }
 
 func (h *CallbackHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
