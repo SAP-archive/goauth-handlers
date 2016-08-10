@@ -106,9 +106,10 @@ func (s *store) writeSession(resp http.ResponseWriter, session *cookieSession) e
 	blocks := s.splitValueString(sessionValueString, MaxCookieValueSize)
 	for i, block := range blocks {
 		cookie := &http.Cookie{
-			Name:  getCookieName(session.name, i+1),
-			Value: block,
-			Path:  "/",
+			Name:     getCookieName(session.name, i+1),
+			Value:    block,
+			Path:     "/",
+			HttpOnly: true,
 		}
 		if err := s.encryptor.Encrypt(cookie); err != nil {
 			s.logging.Errorf("Failed to encrypt session due to '%s'.", err)
@@ -155,11 +156,12 @@ func getCookieName(sessionName string, index int) string {
 
 func getExpiryCookie(name string) *http.Cookie {
 	return &http.Cookie{
-		Name:    name,
-		Value:   "",
-		MaxAge:  -1,
-		Path:    "/",
-		Expires: time.Now().Add(-year),
+		Name:     name,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   -1,
+		Expires:  time.Now().Add(-year),
 	}
 }
 

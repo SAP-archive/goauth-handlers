@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"time"
 
 	. "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/cookie"
 	cookie_fakes "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/cookie/cookiefakes"
@@ -63,6 +64,28 @@ var _ = Describe("Store", func() {
 			Ω(session.Values()).ShouldNot(BeNil())
 			Ω(session.Values()).Should(BeEmpty())
 		})
+	}
+
+	getResponseCookies := func(resp *httptest.ResponseRecorder) []*http.Cookie {
+		header := http.Header{}
+		for _, setCookieHeaderValue := range response.HeaderMap["Set-Cookie"] {
+			header.Add("Set-Cookie", setCookieHeaderValue)
+		}
+		cookieResp := &http.Response{Header: header}
+		return cookieResp.Cookies()
+	}
+
+	isValidHttpCookie := func(cookie *http.Cookie, name, value string) {
+		Ω(cookie.Name).Should(Equal(name))
+		Ω(cookie.Value).Should(Equal(value))
+		Ω(cookie.Path).Should(Equal("/"))
+		Ω(cookie.HttpOnly).Should(BeTrue())
+	}
+
+	isExpiresHttpCookie := func(cookie *http.Cookie, name string) {
+		isValidHttpCookie(cookie, name, "")
+		Ω(cookie.MaxAge).Should(Equal(-1))
+		Ω(cookie.Expires).Should(BeTemporally("<", time.Now(), time.Second))
 	}
 
 	Context("given an empty session", func() {
@@ -145,11 +168,10 @@ var _ = Describe("Store", func() {
 					expectedContent := fmt.Sprintf(expectedJsonStructure, content)
 					Ω(expectedContent).Should(HaveLen(MaxCookieValueSize))
 
-					setCookieValues, found := response.HeaderMap["Set-Cookie"]
-					Ω(found).Should(BeTrue())
-					Ω(setCookieValues).Should(HaveLen(2))
-					Ω(setCookieValues[0]).Should(MatchRegexp("goauth-test-session-1=%s-encrypted; Path=/", url.QueryEscape(expectedContent)))
-					Ω(setCookieValues[1]).Should(MatchRegexp("goauth-test-session-2=; Path=/; Expires=.*; Max-Age=0"))
+					cookies := getResponseCookies(response)
+					Ω(cookies).Should(HaveLen(2))
+					isValidHttpCookie(cookies[0], "goauth-test-session-1", fmt.Sprintf("%s-encrypted", url.QueryEscape(expectedContent)))
+					isExpiresHttpCookie(cookies[1], "goauth-test-session-2")
 				})
 			})
 
@@ -164,12 +186,11 @@ var _ = Describe("Store", func() {
 					expectedContent := fmt.Sprintf(expectedJsonStructure, content)
 					Ω(expectedContent).Should(HaveLen(MaxCookieValueSize + 1))
 
-					setCookieValues, found := response.HeaderMap["Set-Cookie"]
-					Ω(found).Should(BeTrue())
-					Ω(setCookieValues).Should(HaveLen(3))
-					Ω(setCookieValues[0]).Should(MatchRegexp("goauth-test-session-1=%s-encrypted; Path=/", url.QueryEscape(expectedContent[:MaxCookieValueSize])))
-					Ω(setCookieValues[1]).Should(MatchRegexp("goauth-test-session-2=%s-encrypted; Path=/", url.QueryEscape(expectedContent[MaxCookieValueSize:])))
-					Ω(setCookieValues[2]).Should(MatchRegexp("goauth-test-session-3=; Path=/; Expires=.*; Max-Age=0"))
+					cookies := getResponseCookies(response)
+					Ω(cookies).Should(HaveLen(3))
+					isValidHttpCookie(cookies[0], "goauth-test-session-1", fmt.Sprintf("%s-encrypted", url.QueryEscape(expectedContent[:MaxCookieValueSize])))
+					isValidHttpCookie(cookies[1], "goauth-test-session-2", fmt.Sprintf("%s-encrypted", url.QueryEscape(expectedContent[MaxCookieValueSize:])))
+					isExpiresHttpCookie(cookies[2], "goauth-test-session-3")
 				})
 			})
 
@@ -240,12 +261,11 @@ var _ = Describe("Store", func() {
 					})
 
 					It("should write an equal to the initial amount erasing cookies", func() {
-						setCookieValues, found := response.HeaderMap["Set-Cookie"]
-						Ω(found).Should(BeTrue())
-						Ω(setCookieValues).Should(HaveLen(3))
-						Ω(setCookieValues[0]).Should(MatchRegexp("goauth-test-session-1=; Path=/; Expires=.*; Max-Age=0"))
-						Ω(setCookieValues[1]).Should(MatchRegexp("goauth-test-session-2=; Path=/; Expires=.*; Max-Age=0"))
-						Ω(setCookieValues[2]).Should(MatchRegexp("goauth-test-session-3=; Path=/; Expires=.*; Max-Age=0"))
+						cookies := getResponseCookies(response)
+						Ω(cookies).Should(HaveLen(3))
+						isExpiresHttpCookie(cookies[0], "goauth-test-session-1")
+						isExpiresHttpCookie(cookies[1], "goauth-test-session-2")
+						isExpiresHttpCookie(cookies[2], "goauth-test-session-3")
 					})
 				})
 			})
