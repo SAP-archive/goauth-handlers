@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers"
+	"github.com/SAP/goauth_handlers"
 )
 
 type FakeDelegateHandler struct {

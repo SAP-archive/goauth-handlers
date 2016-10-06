@@ -4,8 +4,8 @@ package goauthhandlersfakes
 import (
 	"sync"
 
-	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers"
-	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/token"
+	"github.com/SAP/goauth_handlers"
+	"github.com/SAP/goauth_handlers/token"
 	"golang.org/x/oauth2"
 )
 

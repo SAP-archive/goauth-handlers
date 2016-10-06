@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-location=$GOPATH/src/github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers
+location=$GOPATH/src/github.com/SAP/goauth_handlers
 mkdir -p $location
 cp -r goauth_handlers/. $location
 cd $location
