@@ -3,7 +3,7 @@ package cookie_test
 import (
 	"net/http"
 
-	. "github.com/SAP/goauth_handlers/cookie"
+	. "github.com/SAP/goauth-handlers/cookie"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

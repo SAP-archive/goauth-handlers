@@ -4,7 +4,7 @@ package sessionfakes
 import (
 	"sync"
 
-	"github.com/SAP/goauth_handlers/session"
+	"github.com/SAP/goauth-handlers/session"
 )
 
 type FakeSession struct {

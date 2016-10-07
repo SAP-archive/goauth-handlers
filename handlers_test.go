@@ -10,10 +10,10 @@ import (
 
 	"golang.org/x/oauth2"
 
-	. "github.com/SAP/goauth_handlers"
-	fakes "github.com/SAP/goauth_handlers/goauth_handlersfakes"
-	"github.com/SAP/goauth_handlers/session/sessionfakes"
-	"github.com/SAP/goauth_handlers/token"
+	. "github.com/SAP/goauth-handlers"
+	fakes "github.com/SAP/goauth-handlers/goauth_handlersfakes"
+	"github.com/SAP/goauth-handlers/session/sessionfakes"
+	"github.com/SAP/goauth-handlers/token"
 	"github.com/SAP/gologger/gologgerfakes"
 
 	. "github.com/onsi/ginkgo"

@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/SAP/goauth_handlers/cookie"
-	cookie_fakes "github.com/SAP/goauth_handlers/cookie/cookiefakes"
-	"github.com/SAP/goauth_handlers/session"
+	. "github.com/SAP/goauth-handlers/cookie"
+	cookie_fakes "github.com/SAP/goauth-handlers/cookie/cookiefakes"
+	"github.com/SAP/goauth-handlers/session"
 	"github.com/SAP/gologger/gologgerfakes"
 
 	. "github.com/onsi/ginkgo"

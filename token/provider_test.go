@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/oauth2"
 
-	. "github.com/SAP/goauth_handlers/token"
+	. "github.com/SAP/goauth-handlers/token"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

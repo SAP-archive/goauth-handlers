@@ -1,7 +1,7 @@
 package token_test
 
 import (
-	. "github.com/SAP/goauth_handlers/token"
+	. "github.com/SAP/goauth-handlers/token"
 	"golang.org/x/oauth2"
 
 	. "github.com/onsi/ginkgo"

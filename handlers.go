@@ -7,8 +7,8 @@ import (
 
 	"github.com/satori/go.uuid"
 
-	"github.com/SAP/goauth_handlers/session"
-	"github.com/SAP/goauth_handlers/token"
+	"github.com/SAP/goauth-handlers/session"
+	"github.com/SAP/goauth-handlers/token"
 	"github.com/SAP/gologger"
 
 	"golang.org/x/oauth2"

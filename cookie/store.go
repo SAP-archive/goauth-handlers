@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/SAP/goauth_handlers/session"
+	"github.com/SAP/goauth-handlers/session"
 	"github.com/SAP/gologger"
 )
 

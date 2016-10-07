@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/SAP/goauth_handlers/session"
+	"github.com/SAP/goauth-handlers/session"
 )
 
 type FakeStore struct {
