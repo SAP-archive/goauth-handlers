@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/session"
+	"github.com/SAP/goauth-handlers/session"
 )
 
 type FakeStore struct {

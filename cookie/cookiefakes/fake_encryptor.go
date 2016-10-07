@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/cookie"
+	"github.com/SAP/goauth-handlers/cookie"
 )
 
 type FakeEncryptor struct {

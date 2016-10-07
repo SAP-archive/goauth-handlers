@@ -10,11 +10,11 @@ import (
 
 	"golang.org/x/oauth2"
 
-	. "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers"
-	fakes "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/goauth_handlersfakes"
-	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/session/sessionfakes"
-	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/token"
-	"github.infra.hana.ondemand.com/cloudfoundry/gologger/gologgerfakes"
+	. "github.com/SAP/goauth-handlers"
+	fakes "github.com/SAP/goauth-handlers/goauth_handlersfakes"
+	"github.com/SAP/goauth-handlers/session/sessionfakes"
+	"github.com/SAP/goauth-handlers/token"
+	"github.com/SAP/gologger/gologgerfakes"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

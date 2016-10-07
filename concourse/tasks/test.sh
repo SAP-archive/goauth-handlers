@@ -1,8 +1,8 @@
 #!/bin/bash -e
 
-location=$GOPATH/src/github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers
+location=$GOPATH/src/github.com/SAP/goauth-handlers
 mkdir -p $location
-cp -r goauth_handlers/. $location
+cp -r goauth-handlers/. $location
 cd $location
 
 go get github.com/onsi/ginkgo/ginkgo

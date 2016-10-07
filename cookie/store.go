@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/session"
-	"github.infra.hana.ondemand.com/cloudfoundry/gologger"
+	"github.com/SAP/goauth-handlers/session"
+	"github.com/SAP/gologger"
 )
 
 const sessionPrefix = "goauth-"

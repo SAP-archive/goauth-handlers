@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	. "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/cookie"
-	cookie_fakes "github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/cookie/cookiefakes"
-	"github.infra.hana.ondemand.com/cloudfoundry/goauth_handlers/session"
-	"github.infra.hana.ondemand.com/cloudfoundry/gologger/gologgerfakes"
+	. "github.com/SAP/goauth-handlers/cookie"
+	cookie_fakes "github.com/SAP/goauth-handlers/cookie/cookiefakes"
+	"github.com/SAP/goauth-handlers/session"
+	"github.com/SAP/gologger/gologgerfakes"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
