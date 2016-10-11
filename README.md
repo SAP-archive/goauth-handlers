@@ -1,3 +1,5 @@
+[![CLA assistant](https://cla-assistant.io/readme/badge/SAP/goauth-handlers)](https://cla-assistant.io/SAP/goauth-handlers)
+
 # goauth-handlers
 
 Go HTTP handlers that adds OAuth 2.0 authorization framework to enable a third-party
