@@ -234,8 +234,6 @@ var _ = Describe("Store", func() {
 					Path:  "/",
 					Value: url.QueryEscape("ial\"}-encrypted"),
 				})
-
-				Ω(sessionGetErr).ShouldNot(HaveOccurred())
 			})
 
 			itShouldNotError()
