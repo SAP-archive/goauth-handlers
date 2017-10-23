@@ -37,6 +37,13 @@ var _ = Describe("Handler", func() {
 
 	var handler http.Handler
 
+	ExpectEqualTokens := func(first, second oauth2.Token) {
+		Ω(first.AccessToken).Should(Equal(second.AccessToken))
+		Ω(first.Expiry.Equal(second.Expiry)).Should(BeTrue())
+		Ω(first.RefreshToken).Should(Equal(second.RefreshToken))
+		Ω(first.TokenType).Should(Equal(second.TokenType))
+	}
+
 	BeforeEach(func() {
 		logger = new(gologgerfakes.FakeLogger)
 
@@ -140,7 +147,7 @@ var _ = Describe("Handler", func() {
 			It("should decode the token", func() {
 				Ω(tokenDecoder.DecodeCallCount()).Should(Equal(1))
 				argToken := tokenDecoder.DecodeArgsForCall(0)
-				Ω(argToken).Should(Equal(oauthToken))
+				ExpectEqualTokens(*argToken, *oauthToken)
 			})
 
 			It("should not have written output", func() {
@@ -342,7 +349,7 @@ var _ = Describe("Handler", func() {
 				var token oauth2.Token
 				err := json.Unmarshal([]byte(tokenString), &token)
 				Ω(err).ShouldNot(HaveOccurred())
-				Ω(token).Should(Equal(*oauthToken))
+				ExpectEqualTokens(token, *oauthToken)
 			})
 
 			itShouldSaveSession()
