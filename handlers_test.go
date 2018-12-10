@@ -11,7 +11,7 @@ import (
 	"golang.org/x/oauth2"
 
 	. "github.com/SAP/goauth-handlers"
-	fakes "github.com/SAP/goauth-handlers/goauth_handlersfakes"
+	fakes "github.com/SAP/goauth-handlers/goauth-handlersfakes"
 	"github.com/SAP/goauth-handlers/session/sessionfakes"
 	"github.com/SAP/goauth-handlers/token"
 	"github.com/SAP/gologger/gologgerfakes"
@@ -22,11 +22,13 @@ import (
 
 var _ = Describe("Handler", func() {
 	const unsetResponseCode = -1
+	const generatedState = "some-random-state-value"
 
 	var logger *gologgerfakes.FakeLogger
 
 	var sessionStore *sessionfakes.FakeStore
 	var session *sessionfakes.FakeSession
+	var stateGenerator *fakes.FakeStateGenerator
 
 	var tokenProvider *fakes.FakeTokenProvider
 
@@ -53,6 +55,9 @@ var _ = Describe("Handler", func() {
 
 		sessionStore = new(sessionfakes.FakeStore)
 		sessionStore.GetReturns(session, nil)
+
+		stateGenerator = new(fakes.FakeStateGenerator)
+		stateGenerator.GenerateStateReturns(generatedState, nil)
 
 		tokenProvider = new(fakes.FakeTokenProvider)
 
@@ -128,6 +133,7 @@ var _ = Describe("Handler", func() {
 				Provider:               tokenProvider,
 				Decoder:                tokenDecoder,
 				Store:                  sessionStore,
+				StateGenerator:         stateGenerator,
 				RequiredScopes:         []string{"logs", "messages"},
 				Handler:                wrappedHandler,
 				Logger:                 logger,
@@ -231,7 +237,7 @@ var _ = Describe("Handler", func() {
 				Ω(session.Values()).Should(HaveKey(SessionStateKey))
 				state, exists := session.Values()[SessionStateKey]
 				Ω(exists).Should(BeTrue())
-				Ω(state).ShouldNot(BeEmpty())
+				Ω(state).Should(Equal(generatedState))
 			})
 
 			itShouldSaveSession()
@@ -239,12 +245,23 @@ var _ = Describe("Handler", func() {
 			It("should get login URL from provider", func() {
 				Ω(tokenProvider.LoginURLCallCount()).Should(Equal(1))
 				argState := tokenProvider.LoginURLArgsForCall(0)
-				Ω(argState).Should(Equal(session.Values()[SessionStateKey]))
+				Ω(argState).Should(Equal(generatedState))
 			})
 
 			It("should redirect to login URL", func() {
 				Ω(response.Code).Should(Equal(http.StatusFound))
 				Ω(response.Header().Get("Location")).Should(Equal(loginURL))
+			})
+
+			Context("when state generation fails", func() {
+				var errGenerate error
+
+				BeforeEach(func() {
+					errGenerate = errors.New("generation stubbed to fail")
+					stateGenerator.GenerateStateReturns("", errGenerate)
+				})
+
+				itShouldReturnInternalServerError()
 			})
 
 			Context("when saving session fails", func() {

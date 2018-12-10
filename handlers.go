@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/satori/go.uuid"
-
 	"github.com/SAP/goauth-handlers/session"
 	"github.com/SAP/goauth-handlers/token"
 	"github.com/SAP/gologger"
@@ -17,6 +15,7 @@ import (
 //go:generate counterfeiter . DelegateHandler
 //go:generate counterfeiter . TokenProvider
 //go:generate counterfeiter . TokenDecoder
+//go:generate counterfeiter . StateGenerator
 
 type DelegateHandler interface {
 	http.Handler
@@ -49,11 +48,16 @@ const HeaderOAuthInfoUserID = "X-Goauth-Oauth-Info-User-Id"
 const HeaderOAuthInfoUserName = "X-Goauth-Oauth-Info-User-Name"
 const HeaderOAuthInfoScopes = "X-Goauth-Oauth-Info-User-Scopes"
 
+type StateGenerator interface {
+	GenerateState() (string, error)
+}
+
 type AuthorizationHandler struct {
 	Handler                DelegateHandler
 	Provider               TokenProvider
 	Decoder                TokenDecoder
 	Store                  session.Store
+	StateGenerator         StateGenerator
 	RequiredScopes         []string
 	Logger                 gologger.Logger
 	StoreTokenInHeaders    bool
@@ -71,12 +75,18 @@ func (h *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		delete(session.Values(), SessionTokenKey)
 		session.Values()[SessionURLKey] = req.URL.String()
 
-		state := uuid.NewV4().String()
+		state, err := h.StateGenerator.GenerateState()
+		if err != nil {
+			h.Logger.Errorf("Could not generate random state due to '%s'.", err)
+			http.Error(w, "Could not finalize request.", http.StatusInternalServerError)
+			return
+		}
 		session.Values()[SessionStateKey] = state
 
 		if err := h.Store.Save(w, session); err != nil {
 			h.Logger.Errorf("Could not save session due to '%s'.", err)
 			http.Error(w, "Could not finalize request.", http.StatusInternalServerError)
+			return
 		}
 
 		http.Redirect(w, req, h.Provider.LoginURL(state), http.StatusFound)
