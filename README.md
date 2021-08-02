@@ -1,3 +1,8 @@
+![](https://img.shields.io/badge/STATUS-NOT%20CURRENTLY%20MAINTAINED-red.svg?longCache=true&style=flat)
+
+# Important Notice
+This public repository is read-only and no longer maintained.
+
 [![CLA assistant](https://cla-assistant.io/readme/badge/SAP/goauth-handlers)](https://cla-assistant.io/SAP/goauth-handlers)
 [![GoDoc](https://godoc.org/github.com/SAP/aker?status.svg)](https://godoc.org/github.com/SAP/goauth-handlers)
 [![Travis Build](https://travis-ci.org/SAP/goauth-handlers.svg?branch=master)](https://travis-ci.org/SAP/goauth-handlers)
